@@ -1,4 +1,6 @@
 locals {
+  extra_manifests = join(" ", var.manifests)
+
   # Remove map keys from all_repositories with no value. That means they were not specified
   clean_repositories = {
     for name, repo in var.repositories : "${name}" => {
@@ -55,13 +57,20 @@ resource "helm_release" "argocd" {
   )
 }
 
-data "kubectl_path_documents" "docs" {
-  pattern = "${var.manifests_directory}/*.yaml"
-}
+resource "null_resource" "extra_manifests" {
+  count = length(local.extra_manifests) > 0 ? 1 : 0
+  triggers = {
+    extra_manifests = local.extra_manifests
+  }
 
-resource "kubectl_manifest" "extra_manifests" {
-  for_each  = data.kubectl_path_documents.docs.documents
-  yaml_body = each.value
+  provisioner "local-exec" {
+    command = "kubectl apply -f '${self.triggers.extra_manifests}'"
+    when    = create
+  }
+  provisioner "local-exec" {
+    command = "kubectl delete -f '${self.triggers.extra_manifests}'"
+    when    = destroy
+  }
 
   depends_on = [helm_release.argocd]
 }
