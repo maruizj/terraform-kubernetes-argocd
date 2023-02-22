@@ -60,7 +60,7 @@ data "kubectl_path_documents" "docs" {
 }
 
 resource "kubectl_manifest" "extra_manifests" {
-  for_each  = toset(data.kubectl_path_documents.docs.documents)
+  for_each  = data.kubectl_path_documents.docs.documents
   yaml_body = each.value
 
   depends_on = [helm_release.argocd]
